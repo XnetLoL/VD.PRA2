@@ -1,0 +1,148 @@
+---
+title: 'Visualización de Datos: A9 - Creación de la visualización y entrega del proyecto'
+author: "Autor: Ouassim Aouattah"
+date: "Enero 2023"
+output:
+  html_document:
+    highlight: default
+    number_sections: no
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: PEC-header.html
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = FALSE) 
+```
+******
+# Introducción {.unnumbered}
+******
+
+En este proyecto, se presentará una visualización del desglose del presupuesto en España desde el año 2007 hasta el 2023. Se analizará tanto el gasto como los ingresos del gobierno español y se mostrará cómo ha evolucionado a lo largo de los años.
+
+Se han utilizado los siguientes conjuntos de datos (los cuales han sido transformados para su uso):
+
+- [CIVIO](https://dondevanmisimpuestos.es/politicas#view=income&year=2023)
+- [HACIENDA](https://www.sepg.pap.hacienda.gob.es/sitios/sepg/es-ES/Presupuestos/PGE/PresupuestosEjerciciosAnteriores/Paginas/presupuestosejerciciosanteriores.aspx)
+- [Datos Macro](https://datosmacro.expansion.com/deuda/espana)
+
+
+```{r echo=FALSE}
+### Cargamos el fichero de gastos
+df_gastos <- read.csv("gastosf-pais-espana.csv")
+df_gastos <- subset(df_gastos, select = -c(Id.Política, Id.Programa, Gasto.Real))
+
+df_gastos_total <- subset(df_gastos[which(df_gastos$Nombre.Programa == ""),], select = -c(Nombre.Programa))
+df_gastos <- df_gastos[-which(df_gastos$Nombre.Programa == ""),]
+
+### Cargamos el fichero de ingresos
+df_ingresos <- read.csv("ingresos-pais-espana.csv")
+df_ingresos <- subset(df_ingresos, select = -c(Id.Artículo, Id.Concepto, Ingresos.Reales))
+
+df_ingresos_total <- subset(df_ingresos[which(df_ingresos$Nombre.Concepto == ""),], select = -c(Nombre.Concepto))
+df_ingresos <- df_ingresos[-which(df_ingresos$Nombre.Concepto == ""),]
+```
+
+```{r echo=FALSE}
+### Dataset F1.Gastos
+write.csv(df_gastos, "f1.gastos.csv")
+
+### Datset F1.Ingresos
+write.csv(df_ingresos, "f1.ingresos.csv")
+```
+
+# Desglose del presupuesto español
+
+## Gasto
+
+En este apartado, se mostrará una jerarquía de los diferentes rubros en los que se ha gastado el presupuesto en España. Utilizaremos un hierarchy chart para representar esta información de manera clara y fácil de entender.
+Este gráfico nos permite obtener tanto información general como más específica para cada gsto mediante un clic, cada recuadro tiene un area proporcional a la cantidad del presupuesto destinado. 
+También podemos seleccionar el año que nos interese.
+
+<div class="flourish-embed flourish-hierarchy" data-src="visualisation/12522644"><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+## Ingresos
+
+En este apartado, se mostrará una jerarquía de los diferentes rubros en los que se han obtenido ingresos en España, nuevamente mediante el uso de un hierarchy chart. 
+
+<div class="flourish-embed flourish-hierarchy" data-src="visualisation/12524414"><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+# Evolución del presupuesto español
+
+```{r}
+# df_evolucion_gasto <- subset(df_gastos, select = -c(Nombre.Programa))
+
+library(dplyr)
+library(tidyr)
+
+df_evolucion_gasto <- df_gastos %>% 
+  group_by(Año, Nombre.Política) %>% 
+  summarise(Presupuesto.Gasto = sum(Presupuesto.Gasto)) %>% 
+  pivot_wider(names_from = Nombre.Política, values_from = Presupuesto.Gasto)
+
+df_evolucion_gasto[is.na(df_evolucion_gasto)] <- 0
+#df_evolucion_gasto$total <- rowSums(df_evolucion_gasto[, sapply(df_evolucion_gasto, is.numeric)])
+#df_evolucion_gasto$total <- rowSums(df_evolucion_gasto[, -which(colnames(df_evolucion_gasto) == "Año")])
+
+df_evolucion_ingresos <- df_ingresos %>% 
+  group_by(Año, Nombre.Artículo) %>% 
+  summarise(Presupuesto.Ingresos = sum(Presupuesto.Ingresos)) %>% 
+  pivot_wider(names_from = Nombre.Artículo, values_from = Presupuesto.Ingresos)
+
+df_evolucion_gasto[is.na(df_evolucion_gasto)] <- 0
+df_evolucion_ingresos[is.na(df_evolucion_ingresos)] <- 0
+```
+
+```{r}
+write.csv(df_evolucion_gasto, "f2.evolucion_gasto.csv")
+write.csv(df_evolucion_ingresos, "f2.evolucion_ingresos.csv")
+```
+
+## Gasto
+
+En esta sección, se mostrará cómo ha evolucionado el gasto en España a lo largo de los años. Utilizaremos un area chart (streamgraph), que nos permite, de manera visual, ver las partidas que más contribuyen al gasto total.
+
+<div class="flourish-embed flourish-chart" data-src="visualisation/12525034"><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+## Ingresos
+
+En esta sección, se mostrará cómo han evolucionado los ingresos en España a lo largo de los años, mediante otro streamgraph.
+
+<div class="flourish-embed flourish-chart" data-src="visualisation/12525461"><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+## Deuda Pública
+
+En esta sección, se mostrará cómo ha evolucionado la deuda pública en España a lo largo de los años. Como podemos observar con la animación, la deuda aumenta en relación al déficit presupuestario. 
+
+```{r}
+df_total_gasto <- df_gastos_total %>% group_by(Año) %>% summarise(Presupuesto.Gasto = sum(Presupuesto.Gasto)) %>% 
+pivot_wider(names_from = Año, values_from = Presupuesto.Gasto)
+df_total_gasto <- cbind(year=c("Gasto"), df_total_gasto) 
+
+df_total_ingresos <- df_ingresos_total %>% group_by(Año) %>% summarise(Presupuesto.Ingresos = sum(Presupuesto.Ingresos)) %>% 
+pivot_wider(names_from = Año, values_from = Presupuesto.Ingresos)
+df_total_ingresos <- cbind(year=c("Ingresos"), df_total_ingresos) 
+
+df_deuda_total <- subset(df_gastos[which(df_gastos$Nombre.Política == "Deuda pública"),], select = c(Año, Nombre.Política, Presupuesto.Gasto))
+
+df_total_deuda <- df_deuda_total %>% group_by(Año) %>% summarise(Presupuesto.Gasto = sum(Presupuesto.Gasto)) %>% 
+pivot_wider(names_from = Año, values_from = Presupuesto.Gasto)
+df_total_deuda <- cbind(year=c("Deuda pública"), df_total_deuda) 
+
+df_total <- rbind(df_total_gasto, df_total_ingresos, df_total_deuda)
+
+write.csv(df_total, "f3.evolucion_deuda.csv")
+```
+
+<div class="flourish-embed flourish-chart" data-src="visualisation/12525532"><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+# Conclusiones
+Una vez completada la visualización, se podrá concluir cómo ha evolucionado el presupuesto en España en los últimos años, tanto en gasto como en ingresos y cómo ha afectado a la deuda pública. Esta información será útil para entender la situación económica del país.
+
+
